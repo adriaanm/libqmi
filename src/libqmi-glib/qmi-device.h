@@ -1327,6 +1327,18 @@ QrtrNode *qmi_device_peek_node (QmiDevice *self);
 
 #endif /* QMI_QRTR_SUPPORTED */
 
+#if QMI_MSMIPC_SUPPORTED
+
+#define QMI_DEVICE_MSMIPC "device-msmipc"
+
+void       qmi_device_new_from_msmipc        (GCancellable        *cancellable,
+                                               GAsyncReadyCallback  callback,
+                                               gpointer             user_data);
+QmiDevice *qmi_device_new_from_msmipc_finish  (GAsyncResult        *res,
+                                               GError             **error);
+
+#endif /* QMI_MSMIPC_SUPPORTED */
+
 G_END_DECLS
 
 #endif /* _LIBQMI_GLIB_QMI_DEVICE_H_ */

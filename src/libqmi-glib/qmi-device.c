@@ -38,6 +38,9 @@
 #include "qmi-endpoint.h"
 #include "qmi-endpoint-mbim.h"
 #include "qmi-endpoint-qmux.h"
+#if QMI_MSMIPC_SUPPORTED
+#include "qmi-endpoint-msmipc.h"
+#endif
 #include "qmi-ctl.h"
 #include "qmi-dms.h"
 #include "qmi-wds.h"
@@ -100,6 +103,9 @@ enum {
 #if QMI_QRTR_SUPPORTED
     PROP_NODE,
 #endif
+#if QMI_MSMIPC_SUPPORTED
+    PROP_MSMIPC,
+#endif
     PROP_LAST
 };
 
@@ -117,6 +123,9 @@ struct _QmiDevicePrivate {
     QmiFile *file;
 #if QMI_QRTR_SUPPORTED
     QrtrNode *node;
+#endif
+#if QMI_MSMIPC_SUPPORTED
+    gboolean has_msmipc;
 #endif
     gboolean no_file_check;
 
@@ -2560,6 +2569,11 @@ device_create_endpoint (QmiDevice *self,
                         DeviceOpenContext *ctx)
 {
     if (!(ctx->flags & QMI_DEVICE_OPEN_FLAGS_MBIM)) {
+#if QMI_MSMIPC_SUPPORTED
+        if (self->priv->has_msmipc && !(ctx->flags & QMI_DEVICE_OPEN_FLAGS_PROXY)) {
+            self->priv->endpoint = QMI_ENDPOINT (qmi_endpoint_msmipc_new ());
+        } else
+#endif
 #if QMI_QRTR_SUPPORTED
         /* We talk to proxies over QMUX even if they are proxying a QRTR device. */
         if (self->priv->node && !(ctx->flags & QMI_DEVICE_OPEN_FLAGS_PROXY)) {
@@ -2679,6 +2693,13 @@ device_open_step (GTask *task)
         /* Fall through */
 
     case DEVICE_OPEN_CONTEXT_STEP_DRIVER:
+#if QMI_MSMIPC_SUPPORTED
+        if (self->priv->has_msmipc) {
+            g_debug ("[%s] selecting QMI mode for MSMIPC endpoint",
+                     qmi_file_get_path_display (self->priv->file));
+            ctx->flags &= ~QMI_DEVICE_OPEN_FLAGS_MBIM;
+        } else
+#endif
 #if QMI_QRTR_SUPPORTED
         if (self->priv->node) {
             g_debug ("[%s] selecting QMI mode for QRTR endpoint",
@@ -2724,6 +2745,16 @@ device_open_step (GTask *task)
             g_debug ("[%s] checking version info (%u retries)...",
                      qmi_file_get_path_display (self->priv->file),
                      ctx->version_check_retries);
+#if QMI_MSMIPC_SUPPORTED
+            if (self->priv->has_msmipc) {
+                g_debug ("[%s] MSMIPC does not support version info check",
+                         qmi_file_get_path_display (self->priv->file));
+                ctx->step++;
+                device_open_step (task);
+                return;
+            }
+            else
+#endif
 #if QMI_QRTR_SUPPORTED
             if (self->priv->node) {
                 g_debug ("[%s] QRTR does not support version info check: checking only for available services",
@@ -3151,6 +3182,29 @@ qmi_device_peek_node (QmiDevice *self)
 }
 #endif
 
+#if QMI_MSMIPC_SUPPORTED
+QmiDevice *
+qmi_device_new_from_msmipc_finish (GAsyncResult  *res,
+                                    GError       **error)
+{
+    return common_device_new_finish (res, error);
+}
+
+void
+qmi_device_new_from_msmipc (GCancellable        *cancellable,
+                             GAsyncReadyCallback  callback,
+                             gpointer             user_data)
+{
+    g_async_initable_new_async (QMI_TYPE_DEVICE,
+                                G_PRIORITY_DEFAULT,
+                                cancellable,
+                                callback,
+                                user_data,
+                                QMI_DEVICE_MSMIPC, TRUE,
+                                NULL);
+}
+#endif
+
 QmiDevice *
 qmi_device_new_finish (GAsyncResult  *res,
                        GError       **error)
@@ -3269,6 +3323,14 @@ initable_init_async (GAsyncInitable *initable,
     }
 #endif
 
+#if QMI_MSMIPC_SUPPORTED
+    /* If using AF_MSM_IPC, skip file check */
+    if (self->priv->has_msmipc) {
+        client_ctl_setup (task);
+        return;
+    }
+#endif
+
     /* If no file check requested, don't do it */
     if (self->priv->no_file_check) {
         client_ctl_setup (task);
@@ -3334,6 +3396,15 @@ set_property (GObject      *object,
         }
         break;
 #endif
+#if QMI_MSMIPC_SUPPORTED
+    case PROP_MSMIPC:
+        self->priv->has_msmipc = g_value_get_boolean (value);
+        if (self->priv->has_msmipc && !self->priv->file) {
+            g_autoptr(GFile) gfile = g_file_new_for_uri ("msmipc://0");
+            self->priv->file = qmi_file_new (gfile);
+        }
+        break;
+#endif
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
         break;
@@ -3363,6 +3434,11 @@ get_property (GObject    *object,
 #if QMI_QRTR_SUPPORTED
     case PROP_NODE:
         g_value_set_object (value, self->priv->node);
+        break;
+#endif
+#if QMI_MSMIPC_SUPPORTED
+    case PROP_MSMIPC:
+        g_value_set_boolean (value, self->priv->has_msmipc);
         break;
 #endif
     default:
@@ -3568,6 +3644,16 @@ qmi_device_class_init (QmiDeviceClass *klass)
                              QRTR_TYPE_NODE,
                              G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
     g_object_class_install_property (object_class, PROP_NODE, properties[PROP_NODE]);
+#endif
+
+#if QMI_MSMIPC_SUPPORTED
+    properties[PROP_MSMIPC] =
+        g_param_spec_boolean (QMI_DEVICE_MSMIPC,
+                              "MSMIPC",
+                              "Use AF_MSM_IPC transport",
+                              FALSE,
+                              G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+    g_object_class_install_property (object_class, PROP_MSMIPC, properties[PROP_MSMIPC]);
 #endif
 
     /**

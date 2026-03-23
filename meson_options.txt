@@ -10,6 +10,7 @@ option('mm_runtime_check', type: 'boolean', value: true, description: 'build Mod
 option('qmi_username', type: 'string', value: '', description: 'user allowed to access QMI devices')
 option('qmi_groupname', type: 'string', value: '', description: 'group allowed to access QMI devices')
 option('qrtr', type: 'boolean', value: true, description: 'enable support for QRTR protocol')
+option('msmipc', type: 'boolean', value: false, description: 'enable support for AF_MSM_IPC transport (CAF kernels)')
 option('rmnet', type: 'boolean', value: true, description: 'enable support for RMNET link management')
 
 option('udev', type: 'boolean', value: true, description: 'build udev support')

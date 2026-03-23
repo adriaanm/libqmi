@@ -112,6 +112,15 @@
 #define QMI_QRTR_SUPPORTED @QMI_QRTR_SUPPORTED@
 
 /**
+ * QMI_MSMIPC_SUPPORTED:
+ *
+ * Symbol to expose whether QMI over AF_MSM_IPC is supported.
+ *
+ * Since: 1.34.1
+ */
+#define QMI_MSMIPC_SUPPORTED @QMI_MSMIPC_SUPPORTED@
+
+/**
  * QMI_RMNET_SUPPORTED:
  *
  * Symbol to expose wether RMNET link management operations are supported. The

@@ -114,6 +114,10 @@ if enable_qrtr
   sources += files('qmi-endpoint-qrtr.c')
 endif
 
+if enable_msmipc
+  sources += files('qmi-endpoint-msmipc.c')
+endif
+
 if enable_rmnet
   sources += files('qmi-net-port-manager-rmnet.c')
 endif

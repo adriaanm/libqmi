@@ -220,6 +220,9 @@ if enable_qrtr
 endif
 config_h.set10('QMI_QRTR_SUPPORTED', enable_qrtr)
 
+enable_msmipc = get_option('msmipc')
+config_h.set10('QMI_MSMIPC_SUPPORTED', enable_msmipc)
+
 version_conf = configuration_data()
 version_conf.set('VERSION', qmi_version)
 version_conf.set('QMI_MAJOR_VERSION', qmi_major_version)
@@ -227,6 +230,7 @@ version_conf.set('QMI_MINOR_VERSION', qmi_minor_version)
 version_conf.set('QMI_MICRO_VERSION', qmi_micro_version)
 version_conf.set10('QMI_MBIM_QMUX_SUPPORTED', enable_mbim_qmux)
 version_conf.set10('QMI_QRTR_SUPPORTED', enable_qrtr)
+version_conf.set10('QMI_MSMIPC_SUPPORTED', enable_msmipc)
 version_conf.set10('QMI_RMNET_SUPPORTED', enable_rmnet)
 
 # introspection support

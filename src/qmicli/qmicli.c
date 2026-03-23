@@ -807,26 +807,33 @@ make_device (GFile *file)
         return TRUE;
     }
 
+    id = g_file_get_uri (file);
+
+#if QMI_MSMIPC_SUPPORTED
+    if (id && g_str_has_prefix (id, "msmipc://")) {
+        qmi_device_new_from_msmipc (cancellable,
+                                     (GAsyncReadyCallback)device_new_ready,
+                                     NULL);
+        return TRUE;
+    }
+#endif
+
 #if QMI_QRTR_SUPPORTED
     {
         guint32 node_id;
 
-        id = g_file_get_uri (file);
-        if (qrtr_get_node_for_uri (id, &node_id)) {
+        if (id && qrtr_get_node_for_uri (id, &node_id)) {
             qrtr_bus_new (1000, /* ms */
                           cancellable,
                           (GAsyncReadyCallback)bus_new_ready,
                           GUINT_TO_POINTER (node_id));
             return TRUE;
         }
-
-        g_printerr ("error: URI is neither a local file path nor a QRTR node: %s\n", id);
-        return FALSE;
     }
-#else
-    g_printerr ("error: URI is not a local file path: %s\n", id);
-    return FALSE;
 #endif
+
+    g_printerr ("error: URI is not a recognized device path: %s\n", id ? id : "(null)");
+    return FALSE;
 }
 
 /*****************************************************************************/
